@@ -14,6 +14,7 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -27,6 +28,9 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.development
+.env.production
+.env.test
 
 # vercel
 .vercel
@@ -41,18 +45,29 @@ next-env.d.ts
 *.swp
 *.swo
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Supabase
+.supabase
 
 # Logs
 logs
 *.log
+
+# Cache
+.cache
+.npm
+.eslintcache
+
+# System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Sensitive files
+vercel-env.json
+*.key
+*.pem
+*.cert
+*.crt
 
 # Optional npm cache directory
 .npm
@@ -176,7 +191,5 @@ log/
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
-
 
 *.dist
