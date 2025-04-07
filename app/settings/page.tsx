@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Package, MapPin, Plus, X, Loader2, Settings as SettingsIcon } from 'lucide-react';
+import { Package, MapPin, Plus, X, Loader2, Settings as SettingsIcon, Trash2, Edit2 } from 'lucide-react';
 import { COLORS, STYLES } from '@/app/config/colors';
 import { redirect } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface StorageArea {
-  id: string;  // UUID
+  id: string;
   area_code: string;
 }
 
@@ -25,6 +26,8 @@ export default function SettingsPage() {
   const [newStorageArea, setNewStorageArea] = useState('');
   const [newItemType, setNewItemType] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItemType | null>(null);
+  const [editingArea, setEditingArea] = useState<StorageArea | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -42,34 +45,29 @@ export default function SettingsPage() {
     const supabase = createClient();
 
     try {
-      // Load storage areas
-      const { data: storageData, error: storageError } = await supabase
-        .from('storage_areas')
-        .select('id, area_code')
-        .order('area_code');
+      const [storageResponse, itemsResponse] = await Promise.all([
+        supabase.from('storage_areas').select('id, area_code').order('area_code'),
+        supabase.from('item_types').select('id, name').order('name')
+      ]);
 
-      if (storageError) throw storageError;
+      if (storageResponse.error) throw storageResponse.error;
+      if (itemsResponse.error) throw itemsResponse.error;
 
-      // Load item types
-      const { data: itemData, error: itemError } = await supabase
-        .from('item_types')
-        .select('*')
-        .order('name');
-
-      if (itemError) throw itemError;
-
-      setStorageAreas(storageData || []);
-      setItemTypes(itemData || []);
+      setStorageAreas(storageResponse.data || []);
+      setItemTypes(itemsResponse.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load settings data');
+      toast.error('Failed to load data');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAddStorageArea = async () => {
-    if (!newStorageArea.trim()) return;
+    if (!newStorageArea.trim()) {
+      toast.error('Please enter a storage area code');
+      return;
+    }
 
     setIsSubmitting(true);
     const supabase = createClient();
@@ -77,7 +75,7 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase
         .from('storage_areas')
-        .insert([{ area_code: newStorageArea.toLowerCase() }]);
+        .insert([{ area_code: newStorageArea.trim() }]);
 
       if (error) throw error;
 
@@ -93,7 +91,8 @@ export default function SettingsPage() {
   };
 
   const handleDeleteStorageArea = async (id: string) => {
-    setIsSubmitting(true);
+    if (!confirm('Are you sure you want to delete this storage area?')) return;
+
     const supabase = createClient();
 
     try {
@@ -109,13 +108,14 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error deleting storage area:', error);
       toast.error('Failed to delete storage area');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleAddItemType = async () => {
-    if (!newItemType.trim()) return;
+    if (!newItemType.trim()) {
+      toast.error('Please enter an item type name');
+      return;
+    }
 
     setIsSubmitting(true);
     const supabase = createClient();
@@ -123,7 +123,7 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase
         .from('item_types')
-        .insert([{ name: newItemType }]);
+        .insert([{ name: newItemType.trim() }]);
 
       if (error) throw error;
 
@@ -139,7 +139,8 @@ export default function SettingsPage() {
   };
 
   const handleDeleteItemType = async (id: number) => {
-    setIsSubmitting(true);
+    if (!confirm('Are you sure you want to delete this item type?')) return;
+
     const supabase = createClient();
 
     try {
@@ -155,176 +156,190 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error deleting item type:', error);
       toast.error('Failed to delete item type');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: COLORS.accent.blue }} />
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: COLORS.primary }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-center mb-8">
-          <SettingsIcon className="h-8 w-8 mr-3" style={{ color: COLORS.accent.blue }} />
-          <h1 className="text-3xl font-bold" style={{ color: COLORS.text.primary }}>
-            Settings
-          </h1>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="flex items-center gap-4 mb-8">
+        <SettingsIcon className="w-8 h-8" style={{ color: COLORS.primary }} />
+        <h1 className="text-3xl font-bold" style={{ color: COLORS.foreground }}>Settings</h1>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="flex border-b" style={{ borderColor: COLORS.border }}>
+          <button
+            className={`px-6 py-4 font-medium transition-colors ${
+              activeTab === 'storage' ? 'border-b-2' : 'opacity-50'
+            }`}
+            style={{
+              color: activeTab === 'storage' ? COLORS.primary : COLORS.foreground,
+              borderColor: activeTab === 'storage' ? COLORS.primary : 'transparent'
+            }}
+            onClick={() => setActiveTab('storage')}
+          >
+            Storage Areas
+          </button>
+          <button
+            className={`px-6 py-4 font-medium transition-colors ${
+              activeTab === 'items' ? 'border-b-2' : 'opacity-50'
+            }`}
+            style={{
+              color: activeTab === 'items' ? COLORS.primary : COLORS.foreground,
+              borderColor: activeTab === 'items' ? COLORS.primary : 'transparent'
+            }}
+            onClick={() => setActiveTab('items')}
+          >
+            Item Types
+          </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm" style={{ border: `1px solid ${COLORS.border.light}` }}>
-          <div className="flex border-b" style={{ borderColor: COLORS.border.light }}>
-            <button
-              onClick={() => setActiveTab('storage')}
-              className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${
-                activeTab === 'storage'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <div className="flex items-center justify-center">
-                <MapPin className="h-5 w-5 mr-2" />
-                Storage Areas
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('items')}
-              className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${
-                activeTab === 'items'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <div className="flex items-center justify-center">
-                <Package className="h-5 w-5 mr-2" />
-                Item Types
-              </div>
-            </button>
-          </div>
-
-          <div className="p-6">
-            {activeTab === 'storage' && (
-              <div className="space-y-6">
-                <div className="flex space-x-4">
+        <div className="p-6">
+          <AnimatePresence mode="wait">
+            {activeTab === 'storage' ? (
+              <motion.div
+                key="storage"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex gap-4 mb-6">
                   <input
                     type="text"
                     value={newStorageArea}
-                    onChange={(e) => setNewStorageArea(e.target.value)}
-                    placeholder="Enter new storage area code"
-                    className="flex-1 px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => setNewStorageArea(e.target.value.toUpperCase())}
+                    placeholder="Enter storage area code"
+                    className="flex-1 px-4 py-2 rounded-md border"
                     style={{
-                      backgroundColor: COLORS.surface,
-                      borderColor: COLORS.border.light,
-                      color: COLORS.text.primary
+                      borderColor: COLORS.border,
+                      backgroundColor: COLORS.background,
+                      color: COLORS.foreground
                     }}
-                    disabled={isSubmitting}
                   />
                   <button
                     onClick={handleAddStorageArea}
                     disabled={isSubmitting}
-                    className="px-4 py-2 rounded-lg font-medium flex items-center transition-colors"
+                    className="px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                     style={{
-                      backgroundColor: COLORS.accent.blue,
+                      backgroundColor: COLORS.primary,
                       color: 'white',
                       opacity: isSubmitting ? 0.7 : 1
                     }}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    Add Area
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid gap-4">
                   {storageAreas.map((area) => (
-                    <div
+                    <motion.div
                       key={area.id}
-                      className="flex items-center justify-between p-4 rounded-lg border transition-colors hover:bg-gray-50"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-between p-4 rounded-lg border"
                       style={{
-                        backgroundColor: COLORS.surface,
-                        borderColor: COLORS.border.light
+                        borderColor: COLORS.border,
+                        backgroundColor: COLORS.background
                       }}
                     >
-                      <span className="font-medium" style={{ color: COLORS.text.primary }}>
-                        {area.area_code.toUpperCase()}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-5 h-5" style={{ color: COLORS.primary }} />
+                        <span style={{ color: COLORS.foreground }}>{area.area_code}</span>
+                      </div>
                       <button
                         onClick={() => handleDeleteStorageArea(area.id)}
-                        disabled={isSubmitting}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                        style={{ color: COLORS.text.secondary }}
+                        className="p-2 rounded-full hover:bg-red-100 transition-colors"
+                        style={{ color: COLORS.destructive }}
                       >
-                        <X className="h-4 w-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'items' && (
-              <div className="space-y-6">
-                <div className="flex space-x-4">
+              </motion.div>
+            ) : (
+              <motion.div
+                key="items"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex gap-4 mb-6">
                   <input
                     type="text"
                     value={newItemType}
                     onChange={(e) => setNewItemType(e.target.value)}
-                    placeholder="Enter new item type"
-                    className="flex-1 px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter item type name"
+                    className="flex-1 px-4 py-2 rounded-md border"
                     style={{
-                      backgroundColor: COLORS.surface,
-                      borderColor: COLORS.border.light,
-                      color: COLORS.text.primary
+                      borderColor: COLORS.border,
+                      backgroundColor: COLORS.background,
+                      color: COLORS.foreground
                     }}
-                    disabled={isSubmitting}
                   />
                   <button
                     onClick={handleAddItemType}
                     disabled={isSubmitting}
-                    className="px-4 py-2 rounded-lg font-medium flex items-center transition-colors"
+                    className="px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
                     style={{
-                      backgroundColor: COLORS.accent.blue,
+                      backgroundColor: COLORS.primary,
                       color: 'white',
                       opacity: isSubmitting ? 0.7 : 1
                     }}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    Add Type
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  {itemTypes.map((type) => (
-                    <div
-                      key={type.id}
-                      className="flex items-center justify-between p-4 rounded-lg border transition-colors hover:bg-gray-50"
+                <div className="grid gap-4">
+                  {itemTypes.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-between p-4 rounded-lg border"
                       style={{
-                        backgroundColor: COLORS.surface,
-                        borderColor: COLORS.border.light
+                        borderColor: COLORS.border,
+                        backgroundColor: COLORS.background
                       }}
                     >
-                      <span className="font-medium" style={{ color: COLORS.text.primary }}>
-                        {type.name}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <Package className="w-5 h-5" style={{ color: COLORS.primary }} />
+                        <span style={{ color: COLORS.foreground }}>{item.name}</span>
+                      </div>
                       <button
-                        onClick={() => handleDeleteItemType(type.id)}
-                        disabled={isSubmitting}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                        style={{ color: COLORS.text.secondary }}
+                        onClick={() => handleDeleteItemType(item.id)}
+                        className="p-2 rounded-full hover:bg-red-100 transition-colors"
+                        style={{ color: COLORS.destructive }}
                       >
-                        <X className="h-4 w-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
       </div>
     </div>

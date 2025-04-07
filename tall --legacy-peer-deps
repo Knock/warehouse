@@ -1,0 +1,5 @@
+[33mcommit 713ff7e6751e5cf709e181309c48df3e18154df6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: monkwhosoldpen <monkwhosoldpen@gmail.com>
+Date:   Mon Apr 7 13:51:43 2025 +0530
+
+    chore: add dist directory to gitignore
