@@ -34,21 +34,42 @@ export default function ProtectedPage() {
     const supabase = createClient();
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        
+        if (!session) {
+          redirect("/sign-in");
+        }
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        
         if (!user) {
           redirect("/sign-in");
         }
+
         setUser(user);
         await loadInitialData();
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Authentication error:', error);
         redirect("/sign-in");
       } finally {
         setIsLoading(false);
       }
     };
+
     getUser();
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        redirect("/sign-in");
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const handleSearch = async () => {
