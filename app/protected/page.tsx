@@ -28,15 +28,25 @@ export default function ProtectedPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (!user) {
+          redirect("/sign-in");
+        }
+        setUser(user);
+        await loadInitialData();
+      } catch (error) {
+        console.error('Error:', error);
         redirect("/sign-in");
+      } finally {
+        setIsLoading(false);
       }
-      setUser(user);
     };
     getUser();
   }, []);
@@ -141,16 +151,12 @@ export default function ProtectedPage() {
     }
   };
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await Promise.all([
-        loadInflowItems(),
-        loadOutflowItems()
-      ]);
-    };
-
-    loadInitialData();
-  }, []);
+  const loadInitialData = async () => {
+    await Promise.all([
+      loadInflowItems(),
+      loadOutflowItems()
+    ]);
+  };
 
   const handleEditSave = async () => {
     // Refresh both search results and inflow items
@@ -159,6 +165,14 @@ export default function ProtectedPage() {
     }
     await loadInflowItems();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 w-full flex flex-col items-center justify-center min-h-screen" style={{ backgroundColor: COLORS.background }}>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: COLORS.accent.blue }}></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 w-full flex flex-col items-center min-h-screen" style={{ backgroundColor: COLORS.background }}>
@@ -336,7 +350,6 @@ export default function ProtectedPage() {
           </h2>
           <LazyList
             items={inflowItems.slice(0, 5)}
-            type="inflow"
             onLoadMore={loadInflowItems}
             hasMore={inflowHasMore}
             isLoading={inflowLoading}
@@ -356,7 +369,6 @@ export default function ProtectedPage() {
           </h2>
           <LazyList
             items={outflowItems.slice(0, 5)}
-            type="outflow"
             onLoadMore={loadOutflowItems}
             hasMore={outflowHasMore}
             isLoading={outflowLoading}

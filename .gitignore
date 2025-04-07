@@ -194,3 +194,9 @@ log/
 !.yarn/versions
 
 *.dist
+
+# Build output
+dist/
+dist/*
+dist/**/*
+dist/**/**/*

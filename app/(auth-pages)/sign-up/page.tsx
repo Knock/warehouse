@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
+import { COLORS, STYLES } from "@/app/config/colors";
 
 export default async function Signup(props: {
   searchParams: Promise<Message>;
@@ -12,7 +13,7 @@ export default async function Signup(props: {
   const searchParams = await props.searchParams;
   if ("message" in searchParams) {
     return (
-      <div className="w-full flex-1 flex items-center h-screen sm:max-w-md justify-center gap-2 p-4">
+      <div className="w-full flex-1 flex items-center justify-center gap-2 p-4">
         <FormMessage message={searchParams} />
       </div>
     );
@@ -20,12 +21,24 @@ export default async function Signup(props: {
 
   return (
     <div className="w-full flex-1 flex flex-col items-center justify-center p-4">
-      <form className="flex flex-col min-w-64 max-w-96 w-full mx-auto space-y-6">
+      <form 
+        className="flex flex-col w-full space-y-6 p-6 rounded-xl border"
+        style={{ 
+          backgroundColor: COLORS.surface,
+          borderColor: COLORS.border.light
+        }}
+      >
         <div className="text-center">
-          <h1 className="text-2xl font-medium">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-2">
+          <h1 className="text-2xl font-medium" style={{ color: COLORS.text.primary }}>
+            Create your account
+          </h1>
+          <p className="text-sm mt-2" style={{ color: COLORS.text.secondary }}>
             Already have an account?{" "}
-            <Link className="text-primary font-medium underline" href="/sign-in">
+            <Link 
+              className="font-medium underline" 
+              href="/sign-in"
+              style={{ color: COLORS.accent.blue }}
+            >
               Sign in
             </Link>
           </p>
@@ -33,21 +46,27 @@ export default async function Signup(props: {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="full_name">Full Name</Label>
+            <Label htmlFor="full_name" style={{ color: COLORS.text.primary }}>
+              Full Name
+            </Label>
             <Input 
               name="full_name" 
               placeholder="John Doe" 
               required 
+              style={STYLES.input}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" style={{ color: COLORS.text.primary }}>
+              Email
+            </Label>
             <Input 
               name="email" 
               type="email" 
               placeholder="you@example.com" 
-              required 
+              required
+              style={STYLES.input}
             />
           </div>
 
@@ -71,21 +90,25 @@ export default async function Signup(props: {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              type="password"
-              name="password"
-              placeholder="Your password"
-              minLength={6}
+            <Label htmlFor="password" style={{ color: COLORS.text.primary }}>
+              Password
+            </Label>
+            <Input 
+              name="password" 
+              type="password" 
+              placeholder="••••••••" 
               required
+              style={STYLES.input}
             />
           </div>
         </div>
 
-        <SubmitButton formAction={signUpAction} pendingText="Creating account...">
-          Create Account
+        <SubmitButton 
+          formAction={signUpAction}
+          style={STYLES.button.primary}
+        >
+          Sign Up
         </SubmitButton>
-        <FormMessage message={searchParams} />
       </form>
       <SmtpMessage />
     </div>
